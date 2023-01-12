@@ -1203,7 +1203,7 @@ interprocessor_interrupt(void)
 		 * vm_tlbshootdown.
 		 */
 		for (i=0; i<curcpu->c_numshootdown; i++) {
-			vm_tlbshootdown(&curcpu->c_shootdown[i]);
+			//vm_tlbshootdown(&curcpu->c_shootdown[i]);
 		}
 		curcpu->c_numshootdown = 0;
 	}

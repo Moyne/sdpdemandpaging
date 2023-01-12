@@ -40,6 +40,7 @@
 #include <mainbus.h>
 #include <syscall.h>
 #include "../../../vm/vm_tlb.h"
+#include "opt-vm.h"
 
 
 /* in exception-*.S */

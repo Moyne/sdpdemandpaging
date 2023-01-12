@@ -31,8 +31,13 @@
 #include <kern/errno.h>
 #include <lib.h>
 #include <addrspace.h>
+#include <coremap.h>
+#include <uio.h>
+#include <vnode.h>
 #include <vm.h>
 #include <proc.h>
+#include <spl.h>
+#include "./vm_tlb.h"
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -53,12 +58,12 @@ as_create(void)
 	/*
 	 * Initialize as needed.
 	 */
+	as->seg1=NULL;as->seg2=NULL;as->segstack=NULL;
 
 	return as;
 }
 
-int
-as_copy(struct addrspace *old, struct addrspace **ret)
+int as_copy(struct addrspace *old, struct addrspace **ret)
 {
 	struct addrspace *newas;
 
@@ -71,7 +76,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	 * Write this.
 	 */
 
-	(void)old;
+	newas->seg1=segcopy(old->seg1);
+	newas->seg2=segcopy(old->seg2);
+	newas->segstack=segcopy(old->segstack);
 
 	*ret = newas;
 	return 0;
@@ -83,7 +90,7 @@ as_destroy(struct addrspace *as)
 	/*
 	 * Clean up as needed.
 	 */
-
+	segdes(as->seg1);segdes(as->seg2);segdes(as->segstack);
 	kfree(as);
 }
 
@@ -105,7 +112,9 @@ as_activate(void)
 	 * Write this.
 	 */
 	//tlb invalidation
+	int spl = splhigh();
 	vmtlb_invalidate();
+	splx(spl);
 	
 }
 
@@ -129,66 +138,17 @@ as_deactivate(void)
  * moment, these are ignored. When you write the VM system, you may
  * want to implement them.
  */
-#if OPT_DEMANDPAGING
-void ptdef(struct pagetable* pt,size_t size,vaddr_t vaddr){
-	KASSERT(pt!==NULL);
-	pt->size=size;
-	pt->vaddr=vaddr;
-	pt->pages=kmalloc(size*sizeof(paddr_t));
-	if(pt->pages==NULL) return ENOMEM;
-	for(int i=0;i<size;i++) pt->pages[i]=DEMANDPAGEFROMELF;
-}
-
-struct pagetable* pagetbcreate(){
-	struct pagetb* pt=kmalloc(sizeof(struc pagetable));
-	if(pt==NULL) return ENOMEM;
-	pt->pages=NULL;
-	pt->size=0;
-	pt->vaddr=0;
-	return pt;
-}
-
-
-
-struct segment* segcreate(){
-	struct segment* seg=kmalloc(sizeof(struct segment));
-	if(segment==NULL) return NULL;
-	segment->numpages=0;
-	segment->elfdata=NULL;
-	segment->filesize=0;
-	segment->memsize=0;
-	segment->offset=0;
-	segment->vaddr=0;
-	segment->pagetable=NULL;
-	segment->permissions=0;
-	return segment;
-}
-
-void segdef(struct segment* seg,vaddr_t vaddr,size_t npages,size_t filesize,size_t memsize,
-			off_t offset,struct vnode* elfnode,int readable,int writable,int executable){
-	KASSERT(seg!==NULL);
-	seg->vaddr=vaddr;
-	seg->numpages=npages;
-	seg->filesize=filesize;
-	seg->memsize=memsize;
-	seg->offset=offset;
-	seg->elfnode=elfnode;
-	seg->permissions=(char) (readable&RDFLAG) | (writable&WRFLAG) | (executable&EXFLAG);
-	seg->pagetable=pagetbcreate();
-	if(seg->pagetable==NULL) panic('Not enough memory for pagetable');
-	ptdef(seg->pagetable,npages,vaddr);
-}
-
 int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize, size_t filesize,
 		 off_t offset,struct vnode* vode,
-		 int readable, int writeable, int executable)
+		 int readable, int writable, int executable)
 {
 	size_t npages;
 
-	dumbvm_can_sleep();
+	map_can_sleep();
 
 	/* Align the region. First, the base... */
+	size_t sz=memsize;
 	sz += vaddr & ~(vaddr_t)PAGE_FRAME;
 	vaddr &= PAGE_FRAME;
 
@@ -206,43 +166,29 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize, size_t fil
 		if(as->seg1==NULL){
 			return ENOMEM;
 		}
-		segdef(as->seg1,vaddr,npages,filesize,memsize,offset,v,
+		segdef(as->seg1,vaddr,npages,filesize,memsize,offset,vode,
 					readable,writable,executable);
+		return 0;
 	}
 
-	if (as->seg2 == NULL) {
+	else if (as->seg2 == NULL) {
 		as->seg2=segcreate();
 		if(as->seg2==NULL){
 			return ENOMEM;
 		}
-		segdef(as->seg2,vaddr,npages,filesize,memsize,offset,v,
+		segdef(as->seg2,vaddr,npages,filesize,memsize,offset,vode,
 					readable,writable,executable);
+		return 0;
 	}
 
 	/*
 	 * Support for more than two regions is not available.
 	 */
-	kprintf("dumbvm: Warning: too many regions\n");
-	return ENOSYS;
+	else{
+		kprintf("dumbvm: Warning: too many regions\n");
+		return ENOSYS;
+	}
 }
-#else
-int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
-		 int readable, int writeable, int executable)
-{
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
-	(void)vaddr;
-	(void)memsize;
-	(void)readable;
-	(void)writeable;
-	(void)executable;
-	return ENOSYS;
-}
-#endif
 int
 as_prepare_load(struct addrspace *as)
 {
@@ -280,3 +226,28 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	return 0;
 }
 
+void readfromelfto(struct addrspace* as, vaddr_t vaddr,paddr_t paddr){
+	struct iovec iov;
+	struct uio io;
+	int res=-1;
+	if(as->seg1->vaddr<=vaddr && ((as->seg1->numpages*PAGE_SIZE)+as->seg1->vaddr)>=vaddr){
+		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,((vaddr-as->seg1->vaddr)/PAGE_SIZE)+as->seg1->offset,UIO_READ);
+		res=VOP_READ(as->seg1->elfdata,&io);
+	}
+	else if(as->seg2->vaddr<=vaddr && ((as->seg2->numpages*PAGE_SIZE)+as->seg2->vaddr)>=vaddr){
+		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,((vaddr-as->seg2->vaddr)/PAGE_SIZE)+as->seg2->offset,UIO_READ);
+		res=VOP_READ(as->seg2->elfdata,&io);
+	}
+	else if(as->segstack->vaddr<=vaddr && ((as->segstack->numpages*PAGE_SIZE)+as->segstack->vaddr)>=vaddr){
+		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,((vaddr-as->segstack->vaddr)/PAGE_SIZE)+as->segstack->offset,UIO_READ);
+		res=VOP_READ(as->segstack->elfdata,&io);
+	}
+	if(res) panic("Could not read from elf");
+}
+
+struct ptpage* getpageat(struct addrspace* as, vaddr_t vaddr){
+	if(as->seg1->vaddr<=vaddr && ((as->seg1->numpages*PAGE_SIZE)+as->seg1->vaddr)>=vaddr)	return seggetpageat(as->seg1,vaddr);
+	else if(as->seg2->vaddr<=vaddr && ((as->seg2->numpages*PAGE_SIZE)+as->seg2->vaddr)>=vaddr)	return seggetpageat(as->seg2,vaddr);
+	else if(as->segstack->vaddr<=vaddr && ((as->segstack->numpages*PAGE_SIZE)+as->segstack->vaddr)>=vaddr)	return seggetpageat(as->segstack,vaddr);
+	return NULL;
+}

@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "types.h": "c",
+        "errno.h": "c",
+        "swapfile.h": "c",
+        "segments.h": "c",
+        "vm.h": "c",
+        "current.h": "c",
+        "mainbus.h": "c",
+        "vm_tlb.h": "c",
+        "vfs.h": "c",
+        "opt-vm.h": "c",
+        "uio.h": "c"
+    }
+}

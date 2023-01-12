@@ -51,6 +51,7 @@
 #include <version.h>
 #include "autoconf.h"  // for pseudoconfig
 #include "hello.h"
+#include "opt-vm.h"
 
 
 /*

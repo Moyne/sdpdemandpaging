@@ -33,17 +33,10 @@
 /*
  * Address space structure and operations.
  */
-
-
 #include <vm.h>
-//tlb invalidation
-#if OPT_TLB
-#include "../../vm/vm_tlb.h"
-#endif
+#include <segments.h>
 #include "opt-dumbvm.h"
-
-struct vnode;
-
+#include "opt-vm.h"
 
 /*
  * Address space - data structure associated with the virtual memory
@@ -51,24 +44,6 @@ struct vnode;
  *
  * You write this.
  */
-
-
-struct pagetable{
-        paddr_t* pages;
-        unsigned int size;
-        vaddr_t vaddr;
-}
-
-struct segment {
-        size_t numpages;
-        struct vnode* elfdata;
-        size_t filesize;
-        size_t memsize;
-        off_t offset;
-        vaddr_t vaddr;
-        struct pagetable* pagetable;
-        char permissions;
-}
 
 
 struct addrspace {
@@ -81,8 +56,10 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #endif
-#if OPT_DEMPAGING
-        struct segment* seg1,seg2,segstack;
+#if OPT_VM
+        struct segment* seg1;
+        struct segment* seg2;
+        struct segment* segstack;
 #endif
 };
 
@@ -132,28 +109,14 @@ int               as_copy(struct addrspace *src, struct addrspace **ret);
 void              as_activate(void);
 void              as_deactivate(void);
 void              as_destroy(struct addrspace *);
-#if OPT_DEMPAGING
-void ptdef(struct pagetable* pt,size_t size,vaddr_t vaddr);
-struct pagetable* pagetbcreate();
-struct segment* segcreate();
-void segdef(struct segment* seg,vaddr_t vaddr,size_t npages,size_t filesize,size_t memsize,
-			off_t offset,struct vnode* elfnode,int readable,int writable,int executable);
-int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize, size_t filesize,
+int as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize, size_t filesize,
 		 off_t offset,struct vnode* vode,
-		 int readable, int writeable, int executable)
-#else
-int               as_define_region(struct addrspace *as,
-                                   vaddr_t vaddr, size_t sz,
-                                   int readable,
-                                   int writeable,
-                                   int executable);
-#endif
+		 int readable, int writable, int executable);
 int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
-
-
+void readfromelfto(struct addrspace* as, vaddr_t vaddr,paddr_t paddr);
+struct ptpage* getpageat(struct addrspace* as, vaddr_t vaddr);
 /*
  * Functions in loadelf.c
  *    load_elf - load an ELF user program executable into the current

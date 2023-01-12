@@ -44,7 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
-
+#include "opt-vm.h"
 /*
  * Load program "progname" and start running it in usermode.
  * Does not return except on error.
@@ -86,10 +86,11 @@ runprogram(char *progname)
 		vfs_close(v);
 		return result;
 	}
-
+#if !OPT_VM
 	/* Done with the file now. */
-	vfs_close(v);
 
+	vfs_close(v);
+#endif
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
 	if (result) {
