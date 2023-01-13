@@ -1,5 +1,5 @@
 #include <types.h>
-#define SWAPFILESIZE 13*1024
+#define SWAPFILESIZE 13*1024*1024
 #define SWAPPAGES SWAPFILESIZE/PAGE_SIZE
 
 void getswapspin(void);

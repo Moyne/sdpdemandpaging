@@ -31,7 +31,7 @@ void mapinit(void)
 	totalPages=(unsigned int)ram_getsize()/PAGE_SIZE;
     map=kmalloc(totalPages*sizeof(struct page));
 	if(map==NULL) return;
-	unsigned int firstFree=ram_getfirstfree()/PAGE_SIZE; // if you want to try swapfile: totalPages-4;
+	unsigned int firstFree=ram_getfirstfree()/PAGE_SIZE; // if you want to try swapfile: totalPages-6;
 	for(unsigned int i=0;i<firstFree;i++){
         map[i].type=KERNEL;
         map[i].numpages=1;
