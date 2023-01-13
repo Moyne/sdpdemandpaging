@@ -5,7 +5,7 @@
 #include <vfs.h>
 #include <kern/fcntl.h>
 #include <vm.h>
-
+#include <vmstats.h>
 struct vnode* swapfile;
 unsigned char swappagesmap[SWAPPAGES];
 struct spinlock swapspin=SPINLOCK_INITIALIZER;
@@ -51,6 +51,7 @@ off_t swapinpage(paddr_t readfrom){
     uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(readfrom),PAGE_SIZE,offset,UIO_WRITE);
     int res=VOP_WRITE(swapfile,&io);
     if(res) panic("Write in swapfile didnt complete");
+    vmstatincr(SWAPWRITE);
     return offset;
 }
 

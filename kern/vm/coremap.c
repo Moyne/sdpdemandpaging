@@ -7,7 +7,7 @@
 #include <proc.h>
 #include <current.h>
 #include <mips/tlb.h>
-#include "../../../kern/vm/vm_tlb.h"
+#include <vm_tlb.h>
 #include <swapfile.h>
 #include <vm.h>
 unsigned long int* bitmap;

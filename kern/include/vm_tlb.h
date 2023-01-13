@@ -1,4 +1,4 @@
-#include "../compile/TLB/opt-tlb.h"
+#include "opt-tlb.h"
 #if OPT_TLB
 #include <types.h>
 #include <mips/tlb.h>

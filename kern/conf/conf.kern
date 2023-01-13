@@ -474,3 +474,4 @@ optfile vm vm/coremap.c
 optfile vm vm/swapfile.c
 optfile vm vm/pt.c
 optfile vm vm/segments.c
+optfile vm vm/vmstats.c

@@ -7,12 +7,14 @@
 #include <spl.h>
 #include <mips/tlb.h>
 #include <coremap.h>
-#include "./vm_tlb.h"
+#include <vm_tlb.h>
 #include <swapfile.h>
+#include <vmstats.h>
 
 void vm_bootstrap(void){
     mapinit();
     swapinit();
+	vmstatsetup();
 }
 
 void vm_tlbshootdown(const struct tlbshootdown *ts)
@@ -100,13 +102,23 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
 	spl = splhigh();
 
 	paddr=seg->pagetable->pages[ind].paddr;
+	vmstatincr(TLBFAULT);
 	if(paddr==INSWAPFILE || paddr==INELFFILE){
 		paddr_t respaddr=alloc_user_page(faultaddress);
-		if(paddr==INSWAPFILE)	swapoutpage(seg->pagetable->pages[ind].swapoffset,respaddr);
-		else if(paddr==INELFFILE && !stack)	readfromelfto(as,faultaddress,respaddr);
+		if(paddr==INSWAPFILE){
+			swapoutpage(seg->pagetable->pages[ind].swapoffset,respaddr);
+			vmstatincr(PAGEFAULTDISK);
+			vmstatincr(PAGEFAULTSWAP);
+		}
+		else if(paddr==INELFFILE && !stack){
+			readfromelfto(as,faultaddress,respaddr);
+			vmstatincr(PAGEFAULTDISK);
+			vmstatincr(PAGEFAULTELF);
+		}
 		seg->pagetable->pages[ind].paddr=respaddr;
 		seg->pagetable->pages[ind].swapoffset=0;
 	}
+	else vmstatincr(TLBRELOAD);
 	if(vmtlb_write(faultaddress,seg->pagetable->pages[ind].paddr,seg->permissions&WRFLAG)==-1)	kprintf("vm: Ran out of TLB entries - cannot handle page fault\n");
 	else {
 		splx(spl);

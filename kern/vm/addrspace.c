@@ -37,7 +37,7 @@
 #include <vm.h>
 #include <proc.h>
 #include <spl.h>
-#include "./vm_tlb.h"
+#include <vm_tlb.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM

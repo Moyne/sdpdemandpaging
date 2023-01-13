@@ -10,6 +10,8 @@
         "vm_tlb.h": "c",
         "vfs.h": "c",
         "opt-vm.h": "c",
-        "uio.h": "c"
+        "uio.h": "c",
+        "lib.h": "c",
+        "tlb.h": "c"
     }
 }

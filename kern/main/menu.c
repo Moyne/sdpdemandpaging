@@ -43,9 +43,10 @@
 #include <sfs.h>
 #include <syscall.h>
 #include <test.h>
+#include <vmstats.h>
 #include "opt-sfs.h"
 #include "opt-net.h"
-
+#include "opt-vm.h"
 /*
  * In-kernel menu and command dispatcher.
  */
@@ -602,6 +603,9 @@ cmd_testmenu(int n, char **a)
 static const char *mainmenu[] = {
 	"[?o] Operations menu                ",
 	"[?t] Tests menu                     ",
+#if OPT_VM
+	"[vms] Virtual memory system stats",
+#endif
 	"[kh] Kernel heap stats              ",
 	"[khgen] Next kernel heap generation ",
 	"[khdump] Dump kernel heap           ",
@@ -656,7 +660,9 @@ static struct {
 	{ "kh",         cmd_kheapstats },
 	{ "khgen",      cmd_kheapgeneration },
 	{ "khdump",     cmd_kheapdump },
-
+#if OPT_VM
+	{ "vms",	printvmstats},
+#endif
 	/* base system tests */
 	{ "at",		arraytest },
 	{ "at2",	arraytest2 },
