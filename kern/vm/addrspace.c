@@ -237,15 +237,15 @@ void readfromelfto(struct addrspace* as, vaddr_t vaddr,paddr_t paddr){
 	int res=-1;
 	paddr&=PAGE_FRAME;
 	if(as->seg1->vaddr<=vaddr && ((as->seg1->numpages*PAGE_SIZE)+as->seg1->vaddr)>=vaddr){
-		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,((vaddr-as->seg1->vaddr)/PAGE_SIZE)+as->seg1->offset,UIO_READ);
+		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,vaddr-as->seg1->vaddr+as->seg1->offset,UIO_READ);
 		res=VOP_READ(as->seg1->elfdata,&io);
 	}
 	else if(as->seg2->vaddr<=vaddr && ((as->seg2->numpages*PAGE_SIZE)+as->seg2->vaddr)>=vaddr){
-		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,((vaddr-as->seg2->vaddr)/PAGE_SIZE)+as->seg2->offset,UIO_READ);
+		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,vaddr-as->seg2->vaddr+as->seg2->offset,UIO_READ);
 		res=VOP_READ(as->seg2->elfdata,&io);
 	}
 	else if(as->segstack->vaddr<=vaddr && ((as->segstack->numpages*PAGE_SIZE)+as->segstack->vaddr)>=vaddr){
-		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,((vaddr-as->segstack->vaddr)/PAGE_SIZE)+as->segstack->offset,UIO_READ);
+		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,vaddr-as->segstack->vaddr+as->segstack->offset,UIO_READ);
 		res=VOP_READ(as->segstack->elfdata,&io);
 	}
 	if(res) panic("Could not read from elf");

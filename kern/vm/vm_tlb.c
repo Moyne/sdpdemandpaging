@@ -3,8 +3,8 @@
 #include <proc.h>
 //tlb writes will work in the following way:
 //The tlb will work as a circular buffer, I use two variables just to have a simpler management of statistics
-unsigned int tlbvictim=0;
-unsigned int tlbindex=0;
+static unsigned int tlbvictim=0;
+static unsigned int tlbindex=0;
 void vmtlb_invalidate(void){
     for(unsigned int i=0;i<NUM_TLB;i++)	tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
     tlbvictim=0;

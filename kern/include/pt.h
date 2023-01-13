@@ -1,6 +1,6 @@
 #include <types.h>
-#define INSWAPFILE 1
-#define INELFFILE 0
+#define INSWAPFILE 0x80000001
+#define INELFFILE 0x80000002
 #ifndef _PT_H_
 struct ptpage {
     //vaddr_t addr;

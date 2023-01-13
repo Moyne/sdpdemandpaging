@@ -12,8 +12,8 @@
 #include <vm.h>
 unsigned long int* bitmap;
 struct page* map;
-unsigned int lastuserallocated=NOTINIT;
-unsigned int swapvictim=NOTINIT;
+static unsigned int lastuserallocated=NOTINIT;
+static unsigned int swapvictim=NOTINIT;
 unsigned int totalPages;
 int isAct=0;
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
