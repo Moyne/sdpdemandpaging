@@ -10,6 +10,7 @@
 #include <vm_tlb.h>
 #include <swapfile.h>
 #include <vm.h>
+#include <pt.h>
 unsigned long int* bitmap;
 struct page* map;
 static unsigned int lastuserallocated=NOTINIT;
@@ -38,6 +39,7 @@ void mapinit(void)
         map[i].fifonext=NOTINIT;
         map[i].as=NULL;
 		map[i].locked=true;
+		map[i].vaddr=PADDR_TO_KVADDR(i*PAGE_SIZE);
     }
 	for(unsigned int i=firstFree;i<totalPages;i++){
 		map[i].type=FREE;
@@ -84,7 +86,7 @@ paddr_t getfreeppages(unsigned long int npages,char type,struct addrspace* as,va
                     map[j].fifonext=NOTINIT;
                     map[j].as=as;
 					map[j].locked=false;
-					map[j].vaddr=vaddr;
+					map[j].vaddr=vaddr!=0?vaddr:PADDR_TO_KVADDR(start*PAGE_SIZE);
                 }
                 if(type==USER){
                     if(lastuserallocated!=NOTINIT)  map[lastuserallocated].fifonext=start;
@@ -157,10 +159,9 @@ paddr_t alloc_user_page(vaddr_t vaddr){
         //swapping needed
         if(swapvictim==NOTINIT) panic("Don't have any user process to swap out!");
         unsigned int newvict=map[swapvictim].fifonext;
-		struct ptpage* pagetoswap=getpageat(map[swapvictim].as,map[swapvictim].vaddr);
+		struct ptpage* pagetoswap=getentry(map[swapvictim].as,map[swapvictim].vaddr);
 		off_t swapinoff= swapinpage((paddr_t) swapvictim*PAGE_SIZE);
-		pagetoswap->paddr=INSWAPFILE;
-		pagetoswap->swapoffset=swapinoff;
+		entryswapped(pagetoswap,swapinoff);
 		as_zero_region((paddr_t) swapvictim*PAGE_SIZE,PAGE_SIZE);
 		map[swapvictim].as=as;
 		map[swapvictim].numpages=1;

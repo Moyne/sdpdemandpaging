@@ -1,22 +1,18 @@
 #include <types.h>
+#include <addrspace.h>
 #define INSWAPFILE 0x80000001
-#define INELFFILE 0x80000002
-#ifndef _PT_H_
 struct ptpage {
-    //vaddr_t addr;
+    struct addrspace* pageas;
+    vaddr_t vaddr;
     paddr_t paddr;
-    off_t swapoffset;
+    bool swapped;
+    struct ptpage* next;
 };
-
-struct pagetable{
-    struct ptpage* pages;
-    unsigned int size;
-    vaddr_t startingvaddr;
-};
-
-void ptdef(struct pagetable* pt,size_t size,vaddr_t vaddr);
-struct pagetable* pagetbcreate(void);
-struct pagetable* ptcopy(struct pagetable* pt);
-void ptdes(struct pagetable* pt);
-#define _PT_H_
-#endif
+void pagetbinit(void);
+int addentry(struct addrspace* as,vaddr_t vaddr,paddr_t paddr);
+struct ptpage* getentry(struct addrspace* as,vaddr_t vaddr);
+int entryswapped(struct ptpage* ent,off_t swapoff);
+int entrymem(struct ptpage* ent,paddr_t paddr);
+struct ptpage* pagetbcreateentry(struct addrspace* as,vaddr_t vaddr,paddr_t paddr);
+int rementry(struct addrspace* as,vaddr_t vaddr);
+void ptdes(void);

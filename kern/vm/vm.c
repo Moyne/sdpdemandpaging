@@ -10,10 +10,11 @@
 #include <vm_tlb.h>
 #include <swapfile.h>
 #include <vmstats.h>
-
+#include <pt.h>
 void vm_bootstrap(void){
     mapinit();
     swapinit();
+	pagetbinit();
 	vmstatsetup();
 }
 
@@ -69,26 +70,26 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
 	KASSERT(as->segstack != NULL);
 	KASSERT(as->segstack->numpages != 0);
 
-	vbase1 = as->seg1->vaddr;
+	vbase1 = as->seg1->startaddr;
 	vtop1 = vbase1 + as->seg1->numpages * PAGE_SIZE;
-	vbase2 = as->seg2->vaddr;
+	vbase2 = as->seg2->startaddr;
 	vtop2 = vbase2 + as->seg2->numpages * PAGE_SIZE;
 	stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	stacktop = USERSTACK;
 	struct segment* seg=NULL;
-	unsigned int ind=0;
+	//unsigned int ind=0;
 	bool stack=false;
 	if (faultaddress >= vbase1 && faultaddress < vtop1) {
 		seg=as->seg1;
-		ind=(faultaddress-vbase1)/PAGE_SIZE;
+		//ind=(faultaddress-vbase1)/PAGE_SIZE;
 	}
 	else if (faultaddress >= vbase2 && faultaddress < vtop2) {
 		seg=as->seg2;
-		ind=(faultaddress-vbase2)/PAGE_SIZE;
+		//ind=(faultaddress-vbase2)/PAGE_SIZE;
 	}
 	else if (faultaddress >= stackbase && faultaddress < stacktop) {
 		seg=as->segstack;
-		ind=(faultaddress-stackbase)/PAGE_SIZE;
+		//ind=(faultaddress-stackbase)/PAGE_SIZE;
 		stack=true;
 	}
 	else {
@@ -100,26 +101,31 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
 
 	/* Disable interrupts on this CPU while frobbing the TLB. */
 	spl = splhigh();
-
-	paddr=seg->pagetable->pages[ind].paddr;
 	vmstatincr(TLBFAULT);
-	if(paddr==INSWAPFILE || paddr==INELFFILE){
+	struct ptpage* pt=getentry(as,faultaddress);
+	if(pt==NULL){
 		paddr_t respaddr=alloc_user_page(faultaddress);
-		if(paddr==INSWAPFILE){
-			swapoutpage(seg->pagetable->pages[ind].swapoffset,respaddr);
-			vmstatincr(PAGEFAULTDISK);
-			vmstatincr(PAGEFAULTSWAP);
-		}
-		else if(paddr==INELFFILE && !stack){
+		if(!stack){
 			readfromelfto(as,faultaddress,respaddr);
 			vmstatincr(PAGEFAULTDISK);
 			vmstatincr(PAGEFAULTELF);
 		}
-		seg->pagetable->pages[ind].paddr=respaddr;
-		seg->pagetable->pages[ind].swapoffset=0;
+		addentry(as,faultaddress,respaddr);
+		paddr=respaddr;
 	}
-	else vmstatincr(TLBRELOAD);
-	if(vmtlb_write(faultaddress,seg->pagetable->pages[ind].paddr,seg->permissions&WRFLAG)==-1)	kprintf("vm: Ran out of TLB entries - cannot handle page fault\n");
+	else if(pt->swapped){
+		paddr_t respaddr=alloc_user_page(faultaddress);
+		swapoutpage((off_t) pt->paddr,respaddr);
+		vmstatincr(PAGEFAULTDISK);
+		vmstatincr(PAGEFAULTSWAP);
+		entrymem(pt,respaddr);
+		paddr=respaddr;
+	}
+	else{
+		vmstatincr(TLBRELOAD);
+		paddr=pt->paddr;
+	}
+	if(vmtlb_write(faultaddress,paddr,seg->permissions&WRFLAG)==-1)	kprintf("vm: Ran out of TLB entries - cannot handle page fault\n");
 	else {
 		splx(spl);
 		return 0;

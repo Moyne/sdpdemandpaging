@@ -4,52 +4,83 @@
 #include <vm.h>
 #include <swapfile.h>
 #include <coremap.h>
-void ptdef(struct pagetable* pt,size_t size,vaddr_t vaddr){
-	KASSERT(pt!=NULL);
-	pt->size=size;
-	pt->startingvaddr=vaddr;
-	pt->pages=kmalloc(size*sizeof(struct ptpage));
-	if(pt->pages==NULL) panic("Out of memory for page table");
-	for(unsigned int i=0;i<size;i++){
-        pt->pages[i].paddr=INELFFILE;
-        pt->pages[i].swapoffset=0;
-    }
+#include <spinlock.h>
+struct ptpage** pagetable;
+struct spinlock pagespin=SPINLOCK_INITIALIZER;
+void pagetbinit(void){
+	pagetable=kmalloc(PTSIZE*sizeof(struct ptpage*));
+	spinlock_acquire(&pagespin);
+	for(unsigned int i=0;i<PTSIZE;i++) pagetable[i]=NULL;
+	spinlock_release(&pagespin);
 }
 
-struct pagetable* pagetbcreate(void){
-	struct pagetable* pt=kmalloc(sizeof(struct pagetable));
-	if(pt==NULL) return NULL;
-	pt->pages=NULL;
-	pt->size=0;
-	pt->startingvaddr=0;
-	return pt;
+struct ptpage* pagetbcreateentry(struct addrspace* as,vaddr_t vaddr,paddr_t paddr){
+	struct ptpage* new=kmalloc(sizeof(struct ptpage));
+	new->paddr=paddr;
+	new->vaddr=vaddr;
+	new->pageas=as;
+	new->swapped=false;
+	new->next=NULL;
+	return new;
 }
 
-struct pagetable* ptcopy(struct pagetable* pt){
-	struct pagetable* newpt=pagetbcreate();
-	newpt->startingvaddr=pt->startingvaddr;
-	newpt->size=pt->size;
-	newpt->pages=kmalloc(pt->size*sizeof(struct ptpage));
-	if(pt->pages==NULL) return NULL;
-	for(unsigned int i=0;i<pt->size;i++){
-        if(pt->pages[i].paddr==INELFFILE){
-		newpt->pages[i].paddr=INELFFILE;
-        newpt->pages[i].swapoffset=0;
+int addentry(struct addrspace* as,vaddr_t vaddr,paddr_t paddr){
+	int ind=(vaddr/PAGE_SIZE)%PTSIZE;
+	struct ptpage* new=pagetbcreateentry(as,vaddr,paddr);
+	spinlock_acquire(&pagespin);
+	if(pagetable[ind]){
+		for(struct ptpage* node=pagetable[ind];node;node=node->next){
+			if(node->next==NULL){
+				node->next=new;
+				break;
+			}
 		}
-		else{
-			//copy
-			paddr_t paddr=alloc_user_page(newpt->startingvaddr+i*PAGE_SIZE);
-			if(pt->pages[i].paddr==INSWAPFILE)	copytofromswap(paddr,pt->pages[i].swapoffset);
-			else	memcpy((void*)paddr,(void*)pt->pages[i].paddr,PAGE_SIZE);
-		}
-    }
-	return newpt;
+	}
+	else pagetable[ind]=new;
+	spinlock_release(&pagespin);
+	return 0;
 }
 
-void ptdes(struct pagetable* pt){
-    KASSERT(pt!=NULL);
-    pt->size=0;
-    pt->startingvaddr=0;
-    kfree(pt->pages);
-    kfree(pt);
+int rementry(struct addrspace* as,vaddr_t vaddr){
+	int ind=(vaddr/PAGE_SIZE)%PTSIZE;
+	spinlock_acquire(&pagespin);
+	struct ptpage* prevnode=NULL;
+	for(struct ptpage* node=pagetable[ind];node;node=node->next){
+		if(node->pageas==as && node->vaddr==vaddr){
+			if(prevnode==NULL)	pagetable[ind]=node->next;
+			else	prevnode->next=node->next;
+			kfree(node);
+			break;
+		}
+		else prevnode=node;
+	}
+	spinlock_release(&pagespin);
+	return 0;
+}
+
+struct ptpage* getentry(struct addrspace* as,vaddr_t vaddr){
+	int ind=(vaddr/PAGE_SIZE)%PTSIZE;
+	for(struct ptpage* node=pagetable[ind];node;node=node->next)	if(node->pageas==as && node->vaddr==vaddr)	return node;
+	return NULL;
+}
+
+int entryswapped(struct ptpage* ent,off_t swapoff){
+	spinlock_acquire(&pagespin);
+	KASSERT(ent!=NULL);
+	ent->paddr=(paddr_t) swapoff;
+	ent->swapped=true;
+	spinlock_release(&pagespin);
+	return 0;
+}
+
+int entrymem(struct ptpage* ent,paddr_t paddr){
+	spinlock_acquire(&pagespin);
+	ent->paddr=paddr;
+	ent->swapped=false;
+	spinlock_release(&pagespin);
+	return 0;
+}
+
+void ptdes(void){
+    kfree(pagetable);
 }

@@ -171,7 +171,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			return ENOMEM;
 		}
 		segdef(as->seg1,vaddr,npages,offset,vnode,
-					readable,writable,executable);
+					false,readable,writable,executable);
 		return 0;
 	}
 
@@ -181,7 +181,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			return ENOMEM;
 		}
 		segdef(as->seg2,vaddr,npages,offset,vnode,
-					readable,writable,executable);
+					false,readable,writable,executable);
 		return 0;
 	}
 
@@ -224,7 +224,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 
 	(void)as;
 	as->segstack=segcreate();
-	segdef(as->segstack,USERSTACK - STACKPAGES*PAGE_SIZE,STACKPAGES,0,NULL,RDFLAG,WRFLAG,0);
+	segdef(as->segstack,USERSTACK - STACKPAGES*PAGE_SIZE,STACKPAGES,0,NULL,true,RDFLAG,WRFLAG,0);
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 
@@ -236,24 +236,17 @@ void readfromelfto(struct addrspace* as, vaddr_t vaddr,paddr_t paddr){
 	struct uio io;
 	int res=-1;
 	paddr&=PAGE_FRAME;
-	if(as->seg1->vaddr<=vaddr && ((as->seg1->numpages*PAGE_SIZE)+as->seg1->vaddr)>=vaddr){
-		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,vaddr-as->seg1->vaddr+as->seg1->offset,UIO_READ);
+	if(as->seg1->startaddr<=vaddr && ((as->seg1->numpages*PAGE_SIZE)+as->seg1->startaddr)>=vaddr){
+		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,vaddr-as->seg1->startaddr+as->seg1->elfoffset,UIO_READ);
 		res=VOP_READ(as->seg1->elfdata,&io);
 	}
-	else if(as->seg2->vaddr<=vaddr && ((as->seg2->numpages*PAGE_SIZE)+as->seg2->vaddr)>=vaddr){
-		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,vaddr-as->seg2->vaddr+as->seg2->offset,UIO_READ);
+	else if(as->seg2->startaddr<=vaddr && ((as->seg2->numpages*PAGE_SIZE)+as->seg2->startaddr)>=vaddr){
+		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,vaddr-as->seg2->startaddr+as->seg2->elfoffset,UIO_READ);
 		res=VOP_READ(as->seg2->elfdata,&io);
 	}
-	else if(as->segstack->vaddr<=vaddr && ((as->segstack->numpages*PAGE_SIZE)+as->segstack->vaddr)>=vaddr){
-		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,vaddr-as->segstack->vaddr+as->segstack->offset,UIO_READ);
+	else if(as->segstack->startaddr<=vaddr && ((as->segstack->numpages*PAGE_SIZE)+as->segstack->startaddr)>=vaddr){
+		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,vaddr-as->segstack->startaddr+as->segstack->elfoffset,UIO_READ);
 		res=VOP_READ(as->segstack->elfdata,&io);
 	}
 	if(res) panic("Could not read from elf");
-}
-
-struct ptpage* getpageat(struct addrspace* as, vaddr_t vaddr){
-	if(as->seg1->vaddr<=vaddr && ((as->seg1->numpages*PAGE_SIZE)+as->seg1->vaddr)>=vaddr)	return seggetpageat(as->seg1,vaddr);
-	else if(as->seg2->vaddr<=vaddr && ((as->seg2->numpages*PAGE_SIZE)+as->seg2->vaddr)>=vaddr)	return seggetpageat(as->seg2,vaddr);
-	else if(as->segstack->vaddr<=vaddr && ((as->segstack->numpages*PAGE_SIZE)+as->segstack->vaddr)>=vaddr)	return seggetpageat(as->segstack,vaddr);
-	return NULL;
 }

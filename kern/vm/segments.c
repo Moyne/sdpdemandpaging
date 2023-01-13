@@ -10,45 +10,40 @@ struct segment* segcreate(void){
 	if(seg==NULL) return NULL;
 	seg->numpages=0;
 	seg->elfdata=NULL;
-	seg->offset=0;
-	seg->vaddr=0;
-	seg->pagetable=NULL;
+	seg->elfoffset=0;
+	seg->startaddr=0;
+	seg->stackseg=false;
 	seg->permissions=0;
 	return seg;
 }
 
 void segdef(struct segment* seg,vaddr_t vaddr,size_t npages,
-			off_t offset,struct vnode* elfnode,int readable,int writable,int executable){
+			off_t offset,struct vnode* elfnode,bool stack,int readable,int writable,int executable){
 	KASSERT(seg!=NULL);
-	seg->vaddr=vaddr;
+	seg->startaddr=vaddr;
 	seg->numpages=npages;
-	seg->offset=offset;
+	seg->elfoffset=offset;
 	seg->elfdata=elfnode;
 	seg->permissions=(char) readable | writable | executable;
-	seg->pagetable=pagetbcreate();
-	if(seg->pagetable==NULL) panic("Not enough memory for pagetable");
-	ptdef(seg->pagetable,npages,vaddr);
+	seg->stackseg=stack;
 }
 
 struct segment* segcopy(struct segment* seg){
 	struct segment* newseg=segcreate();
 	newseg->elfdata=seg->elfdata;
 	newseg->numpages=seg->numpages;
-	newseg->offset=seg->offset;
-	newseg->pagetable=ptcopy(seg->pagetable);
+	newseg->elfoffset=seg->elfoffset;
 	newseg->permissions=seg->permissions;
-	newseg->vaddr=seg->vaddr;
+	newseg->startaddr=seg->startaddr;
+	newseg->stackseg=seg->stackseg;
 	return newseg;
 }
 void segdes(struct segment* seg){
     seg->numpages=0;
 	seg->elfdata=NULL;
-	seg->offset=0;
-	seg->vaddr=0;
+	seg->elfoffset=0;
+	seg->startaddr=0;
 	seg->permissions=0;
-    ptdes(seg->pagetable);
+    seg->stackseg=false;
     kfree(seg);
-}
-struct ptpage* seggetpageat(struct segment* seg, vaddr_t vaddr){
-	return &seg->pagetable->pages[(vaddr-seg->vaddr)/PAGE_SIZE];
 }

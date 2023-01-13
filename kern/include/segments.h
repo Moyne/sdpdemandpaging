@@ -1,22 +1,18 @@
 #include <types.h>
-#include <pt.h>
 #define RDFLAG 4
 #define WRFLAG 2
 #define EXFLAG 1
 struct segment {
         size_t numpages;
         struct vnode* elfdata;
-        size_t filesize;
-        size_t memsize;
-        off_t offset;
-        vaddr_t vaddr;
-        struct pagetable* pagetable;
+        off_t elfoffset;
+        vaddr_t startaddr;
+        bool stackseg;
         char permissions;
 };
 
 struct segment* segcreate(void);
 void segdef(struct segment* seg,vaddr_t vaddr,size_t npages,
-			off_t offset,struct vnode* elfnode,int readable,int writable,int executable);
+			off_t offset,struct vnode* elfnode,bool stack,int readable,int writable,int executable);
 struct segment* segcopy(struct segment* seg);
 void segdes(struct segment* seg);
-struct ptpage* seggetpageat(struct segment* seg, vaddr_t vaddr);
