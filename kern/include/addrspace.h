@@ -37,7 +37,6 @@
 #include <segments.h>
 #include "opt-dumbvm.h"
 #include "opt-vm.h"
-
 /*
  * Address space - data structure associated with the virtual memory
  * space of a process.
@@ -103,14 +102,14 @@ struct addrspace {
  * Note that when using dumbvm, addrspace.c is not used and these
  * functions are found in dumbvm.c.
  */
-
+void as_zero_region(paddr_t paddr,size_t len);
 struct addrspace *as_create(void);
 int               as_copy(struct addrspace *src, struct addrspace **ret);
 void              as_activate(void);
 void              as_deactivate(void);
 void              as_destroy(struct addrspace *);
-int as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize, size_t filesize,
-		 off_t offset,struct vnode* vode,
+int as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
+		 off_t offset,struct vnode* vnode,
 		 int readable, int writable, int executable);
 int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);

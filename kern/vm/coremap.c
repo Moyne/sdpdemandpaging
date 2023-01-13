@@ -31,7 +31,7 @@ void mapinit(void)
 	totalPages=(unsigned int)ram_getsize()/PAGE_SIZE;
     map=kmalloc(totalPages*sizeof(struct page));
 	if(map==NULL) return;
-	unsigned int firstFree=ram_getfirstfree()/PAGE_SIZE;
+	unsigned int firstFree=ram_getfirstfree()/PAGE_SIZE; // if you want to try swapfile: totalPages-4;
 	for(unsigned int i=0;i<firstFree;i++){
         map[i].type=KERNEL;
         map[i].numpages=1;
@@ -75,7 +75,8 @@ paddr_t getfreeppages(unsigned long int npages,char type,struct addrspace* as,va
 	unsigned int start=NOTINIT;
 	for(unsigned int i=0;i<totalPages;i++){
 		if(map[i].type==FREE){
-            if(start>0 && i-start>=npages-1){
+			if(start==NOTINIT) start=i;
+            if(i-start>=npages-1){
                 spinlock_release(&freemem_lock);
                 for(unsigned int j=i;j>=start;j--){
                     map[j].type=type;
@@ -86,13 +87,12 @@ paddr_t getfreeppages(unsigned long int npages,char type,struct addrspace* as,va
 					map[j].vaddr=vaddr;
                 }
                 if(type==USER){
-                    if(lastuserallocated!=NOTINIT)  map[lastuserallocated].fifonext=i;
-                    if(swapvictim==NOTINIT) swapvictim=i;
-                    lastuserallocated=i;
+                    if(lastuserallocated!=NOTINIT)  map[lastuserallocated].fifonext=start;
+                    if(swapvictim==NOTINIT) swapvictim=start;
+                    lastuserallocated=start;
                 }
-                return (paddr_t) PAGE_SIZE*i;
+                return (paddr_t) PAGE_SIZE*start;
             }
-            else if(start==NOTINIT) start=i;
         }
         else{
 			i+=map[i].numpages;
@@ -147,29 +147,29 @@ void free_kpages(vaddr_t addr)
 
 paddr_t alloc_user_page(vaddr_t vaddr){
     struct addrspace* as=proc_getas();
-	struct ptpage* page=getpageat(as,vaddr);
     paddr_t res=getfreeppages(1,USER,as,vaddr);
     if(res!=0){
         //found physical frame available
+		as_zero_region(res,PAGE_SIZE);
         return res;
     }
     else{
         //swapping needed
-        if(swapvictim!=NOTINIT) panic("Don't have any user process to swap out!");
+        if(swapvictim==NOTINIT) panic("Don't have any user process to swap out!");
         unsigned int newvict=map[swapvictim].fifonext;
-        lastuserallocated=swapvictim;
 		struct ptpage* pagetoswap=getpageat(map[swapvictim].as,map[swapvictim].vaddr);
 		off_t swapinoff= swapinpage((paddr_t) swapvictim*PAGE_SIZE);
 		pagetoswap->paddr=INSWAPFILE;
 		pagetoswap->swapoffset=swapinoff;
-		if(page->paddr==INSWAPFILE)	swapoutpage(page->swapoffset,(paddr_t) swapvictim*PAGE_SIZE);
-		else if(page->paddr==INELFFILE)	readfromelfto(as,vaddr,(paddr_t) swapvictim*PAGE_SIZE);
+		as_zero_region((paddr_t) swapvictim*PAGE_SIZE,PAGE_SIZE);
 		map[swapvictim].as=as;
 		map[swapvictim].numpages=1;
 		map[swapvictim].type=USER;
 		map[swapvictim].vaddr=vaddr;
 		map[swapvictim].fifonext=NOTINIT;
 		map[swapvictim].locked=false;
+		map[lastuserallocated].fifonext=swapvictim;
+		lastuserallocated=swapvictim;
 		swapvictim=newvict;
 		return (paddr_t)   lastuserallocated*PAGE_SIZE;      
     }

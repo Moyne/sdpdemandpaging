@@ -1,8 +1,8 @@
 #include <types.h>
 #include <pt.h>
-#define RDFLAG 1
+#define RDFLAG 4
 #define WRFLAG 2
-#define EXFLAG 4
+#define EXFLAG 1
 struct segment {
         size_t numpages;
         struct vnode* elfdata;
@@ -15,7 +15,7 @@ struct segment {
 };
 
 struct segment* segcreate(void);
-void segdef(struct segment* seg,vaddr_t vaddr,size_t npages,size_t filesize,size_t memsize,
+void segdef(struct segment* seg,vaddr_t vaddr,size_t npages,
 			off_t offset,struct vnode* elfnode,int readable,int writable,int executable);
 struct segment* segcopy(struct segment* seg);
 void segdes(struct segment* seg);

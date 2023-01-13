@@ -45,6 +45,10 @@
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
 
+void as_zero_region(paddr_t paddr,size_t len){
+	bzero((void *)PADDR_TO_KVADDR(paddr),len);
+}
+
 struct addrspace *
 as_create(void)
 {
@@ -139,8 +143,8 @@ as_deactivate(void)
  * want to implement them.
  */
 int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize, size_t filesize,
-		 off_t offset,struct vnode* vode,
+as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
+		 off_t offset,struct vnode* vnode,
 		 int readable, int writable, int executable)
 {
 	size_t npages;
@@ -166,7 +170,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize, size_t fil
 		if(as->seg1==NULL){
 			return ENOMEM;
 		}
-		segdef(as->seg1,vaddr,npages,filesize,memsize,offset,vode,
+		segdef(as->seg1,vaddr,npages,offset,vnode,
 					readable,writable,executable);
 		return 0;
 	}
@@ -176,7 +180,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize, size_t fil
 		if(as->seg2==NULL){
 			return ENOMEM;
 		}
-		segdef(as->seg2,vaddr,npages,filesize,memsize,offset,vode,
+		segdef(as->seg2,vaddr,npages,offset,vnode,
 					readable,writable,executable);
 		return 0;
 	}
@@ -219,7 +223,8 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	 */
 
 	(void)as;
-
+	as->segstack=segcreate();
+	segdef(as->segstack,USERSTACK - STACKPAGES*PAGE_SIZE,STACKPAGES,0,NULL,RDFLAG,WRFLAG,0);
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 
@@ -230,6 +235,7 @@ void readfromelfto(struct addrspace* as, vaddr_t vaddr,paddr_t paddr){
 	struct iovec iov;
 	struct uio io;
 	int res=-1;
+	paddr&=PAGE_FRAME;
 	if(as->seg1->vaddr<=vaddr && ((as->seg1->numpages*PAGE_SIZE)+as->seg1->vaddr)>=vaddr){
 		uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(paddr),PAGE_SIZE,((vaddr-as->seg1->vaddr)/PAGE_SIZE)+as->seg1->offset,UIO_READ);
 		res=VOP_READ(as->seg1->elfdata,&io);

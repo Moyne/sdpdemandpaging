@@ -244,8 +244,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return ENOEXEC;
 		}
 #if OPT_VM
-		result= as_define_region(as,ph.p_vaddr, ph.p_memsz,
-						ph.p_filesz,ph.p_offset,v,
+		result= as_define_region(as,ph.p_vaddr, ph.p_memsz,ph.p_offset,v,
 						ph.p_flags & PF_R,
 					  	ph.p_flags & PF_W,
 					  	ph.p_flags & PF_X);

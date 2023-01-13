@@ -71,23 +71,23 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
 	vtop1 = vbase1 + as->seg1->numpages * PAGE_SIZE;
 	vbase2 = as->seg2->vaddr;
 	vtop2 = vbase2 + as->seg2->numpages * PAGE_SIZE;
-	stackbase = USERSTACK - VM_STACKPAGES * PAGE_SIZE;
+	stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	stacktop = USERSTACK;
 	struct segment* seg=NULL;
 	unsigned int ind=0;
-	//bool stack=false;
+	bool stack=false;
 	if (faultaddress >= vbase1 && faultaddress < vtop1) {
 		seg=as->seg1;
 		ind=(faultaddress-vbase1)/PAGE_SIZE;
 	}
 	else if (faultaddress >= vbase2 && faultaddress < vtop2) {
 		seg=as->seg2;
-		ind=(faultaddress-vbase1)/PAGE_SIZE;
+		ind=(faultaddress-vbase2)/PAGE_SIZE;
 	}
 	else if (faultaddress >= stackbase && faultaddress < stacktop) {
 		seg=as->segstack;
-		ind=(faultaddress-vbase1)/PAGE_SIZE;
-		//stack=true;
+		ind=(faultaddress-stackbase)/PAGE_SIZE;
+		stack=true;
 	}
 	else {
 		return EFAULT;
@@ -101,11 +101,13 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
 
 	paddr=seg->pagetable->pages[ind].paddr;
 	if(paddr==INSWAPFILE || paddr==INELFFILE){
-		paddr=alloc_user_page(faultaddress);
-		seg->pagetable->pages[ind].paddr=paddr;
+		paddr_t respaddr=alloc_user_page(faultaddress);
+		if(paddr==INSWAPFILE)	swapoutpage(seg->pagetable->pages[ind].swapoffset,respaddr);
+		else if(paddr==INELFFILE && !stack)	readfromelfto(as,faultaddress,respaddr);
+		seg->pagetable->pages[ind].paddr=respaddr;
 		seg->pagetable->pages[ind].swapoffset=0;
 	}
-	if(vmtlb_write(faultaddress,paddr,seg->permissions&RDFLAG)==-1)	kprintf("vm: Ran out of TLB entries - cannot handle page fault\n");
+	if(vmtlb_write(faultaddress,seg->pagetable->pages[ind].paddr,seg->permissions&WRFLAG)==-1)	kprintf("vm: Ran out of TLB entries - cannot handle page fault\n");
 	else {
 		splx(spl);
 		return 0;

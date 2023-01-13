@@ -22,7 +22,7 @@ int vmtlb_write(vaddr_t addr,paddr_t paddr,bool writePriv){
             }
         }
     }
-    if(tlbindex){
+    /*if(tlbindex){
         tlb_read(&hi,&lo,tlbindex-1);
         int oldas=hi&TLBHI_PID;
         uint32_t oldpid= curproc->p_pid<<6;
@@ -33,31 +33,32 @@ int vmtlb_write(vaddr_t addr,paddr_t paddr,bool writePriv){
         }
         else tlb_write(hi,lo,tlbindex-1);
         oldpid++;
-    }
-    uint32_t pid=curproc->p_pid<<6;
-    hi=(addr&TLBHI_VPAGE)|(pid&TLBHI_PID);
-    lo=(paddr&TLBLO_PPAGE)|TLBLO_VALID|(TLBLO_DIRTY&(writePriv<<10)) | TLBLO_GLOBAL;
+    }*/
+    //uint32_t pid=curproc->p_pid<<6;
+    hi=(addr&TLBHI_VPAGE);//|(pid&TLBHI_PID);
+    lo=(paddr&TLBLO_PPAGE)|TLBLO_VALID;
+    if(writePriv) lo|=TLBLO_DIRTY;//| TLBLO_GLOBAL;
     if(!(lo & TLBLO_VALID)){
         kprintf("Writing INVALID entry");
     }
     if(tlbindex<NUM_TLB){
         tlb_write(hi,lo,tlbindex);
-        uint32_t ah,al;
+        /*uint32_t ah,al;
         tlb_read(&ah,&al,tlbindex);
         if(ah!=hi || al!=lo){
             panic("Couldn't write good tlb entry");
         }
-        tlb_write(hi,lo,tlbindex);
+        tlb_write(hi,lo,tlbindex);*/
         tlbindex++;
     }
     else{
         tlb_write(hi,lo,tlbvictim);
-        uint32_t ah,al;
+        /*uint32_t ah,al;
         tlb_read(&ah,&al,tlbvictim);
         if(ah!=hi || al!=lo){
             panic("Couldn't write good tlb entry");
         }
-        tlb_write(hi,lo,tlbvictim);
+        tlb_write(hi,lo,tlbvictim);*/
         tlbvictim=(tlbvictim+1)%NUM_TLB;
     }
     return 0;
