@@ -4,83 +4,119 @@
 #include <vm.h>
 #include <swapfile.h>
 #include <coremap.h>
-#include <spinlock.h>
-struct ptpage** pagetable;
-struct spinlock pagespin=SPINLOCK_INITIALIZER;
-void pagetbinit(void){
-	pagetable=kmalloc(PTSIZE*sizeof(struct ptpage*));
-	spinlock_acquire(&pagespin);
-	for(unsigned int i=0;i<PTSIZE;i++) pagetable[i]=NULL;
-	spinlock_release(&pagespin);
+
+struct ptpage* gethashedentry(struct ptpage** hashedpt,unsigned int hashedptsize,pid_t pid,vaddr_t vaddr){
+	return hashedpt[(vaddr|pid)%hashedptsize];
 }
 
-struct ptpage* pagetbcreateentry(struct addrspace* as,vaddr_t vaddr,paddr_t paddr){
-	struct ptpage* new=kmalloc(sizeof(struct ptpage));
-	new->paddr=paddr;
-	new->vaddr=vaddr;
-	new->pageas=as;
-	new->swapped=false;
-	new->next=NULL;
-	return new;
+int getfreeframes(struct ptpage* pagetable,unsigned int ptsize,unsigned int numpages){
+	for(unsigned int i=0;i<ptsize;i++){
+		if(pagetable[i].pid==-1){
+			for(unsigned int j=i;j<ptsize;j++){
+				if(pagetable[j].pid!=-1)	break;
+				else if(j-i+1==numpages)	return i;
+			}
+		}
+		else if(pagetable[i].numpages>0) i+=pagetable[i].numpages-1;
+	}
+	return -1;
 }
 
-int addentry(struct addrspace* as,vaddr_t vaddr,paddr_t paddr){
-	int ind=(vaddr/PAGE_SIZE)%PTSIZE;
-	struct ptpage* new=pagetbcreateentry(as,vaddr,paddr);
-	spinlock_acquire(&pagespin);
-	if(pagetable[ind]){
-		for(struct ptpage* node=pagetable[ind];node;node=node->next){
-			if(node->next==NULL){
-				node->next=new;
+void sethashedptentry(struct ptpage** hashedpt,unsigned int hashedptsize,pid_t pid,vaddr_t vaddr,struct ptpage* node){
+	hashedpt[(vaddr|pid)%hashedptsize]=node;
+	return;
+}
+
+void clearhashedptentry(struct ptpage** hashedpt,unsigned int hashedptsize,pid_t pid,vaddr_t vaddr){
+	hashedpt[(vaddr|pid)%hashedptsize]=NULL;
+	return;
+}
+
+int setptentry(struct ptpage* pagetable,struct ptpage** hashedpt,unsigned int hashedptsize,unsigned int index,unsigned int numpages,struct ptpage** firstvictim,struct ptpage** lastallocateduser,pid_t pid,vaddr_t vaddr){
+	pagetable[index].pid=pid;
+	pagetable[index].vaddr=vaddr;
+	pagetable[index].fifonext=NULL;
+	pagetable[index].next=NULL;
+	pagetable[index].numpages=numpages;
+	if(pid>0){
+		struct ptpage* node=&pagetable[index];
+		struct ptpage* hashednode=gethashedentry(hashedpt,hashedptsize,pid,vaddr);
+		//set hashed pt entry
+		if(hashednode==NULL)	sethashedptentry(hashedpt,hashedptsize,pid,vaddr,node);
+		else{
+			for(struct ptpage* n=hashednode;n;n=n->next){
+				if(n->next==NULL){
+					n->next=node;
+					break;
+				}
+			}
+		}
+		//set lastallocateduser and fix firstvictim if not setted yet
+		if(*lastallocateduser!=NULL)	(*lastallocateduser)->fifonext=node;
+		if(*firstvictim==NULL)	*firstvictim=node;
+		*lastallocateduser=node;
+	}
+	return 0;
+}
+
+int freeuser(struct ptpage** hashedpt,unsigned int hashedptsize,struct ptpage** firstvictim,struct ptpage** lastallocateduser,pid_t pid,vaddr_t vaddr){
+	struct ptpage* nodetoremove=NULL;
+	struct ptpage* hashedentry=gethashedentry(hashedpt,hashedptsize,pid,vaddr);
+	struct ptpage* prec=NULL;
+	for(struct ptpage* node=hashedentry;node;node=node->next){
+		if(node->pid==pid && node->vaddr==vaddr){
+			//fix linked list
+			if(prec!=NULL)	prec->next=node->next;
+			nodetoremove=node;
+			break;
+		}
+		prec=node;
+	}
+	if(nodetoremove==NULL) return -1;
+	//clear hashed entry as well
+	if(hashedentry==nodetoremove)	sethashedptentry(hashedpt,hashedptsize,pid,vaddr,nodetoremove->next);
+	//fix fifo linked list, this is needed because fifo list is not double linked
+	if(*firstvictim!=nodetoremove){
+		for(struct ptpage* node=*firstvictim;node;node=node->fifonext){
+			if(node->fifonext->pid==pid && node->fifonext->vaddr==vaddr){
+				//if we are trying to free the last allocated user fix the last allocated user
+				//to the node immediately before
+				//if(*lastallocateduser==nodetoremove)	*lastallocateduser=node;
+				node->fifonext=node->fifonext->fifonext;
 				break;
 			}
 		}
 	}
-	else pagetable[ind]=new;
-	spinlock_release(&pagespin);
-	return 0;
-}
-
-int rementry(struct addrspace* as,vaddr_t vaddr){
-	int ind=(vaddr/PAGE_SIZE)%PTSIZE;
-	spinlock_acquire(&pagespin);
-	struct ptpage* prevnode=NULL;
-	for(struct ptpage* node=pagetable[ind];node;node=node->next){
-		if(node->pageas==as && node->vaddr==vaddr){
-			if(prevnode==NULL)	pagetable[ind]=node->next;
-			else	prevnode->next=node->next;
-			kfree(node);
-			break;
+	else	*firstvictim=nodetoremove->fifonext;
+	if(*lastallocateduser==nodetoremove){
+		if(*firstvictim==NULL)	*lastallocateduser=NULL;
+		else{
+			for(struct ptpage* n=*firstvictim;n;n=n->fifonext){
+				if(n->fifonext==NULL){
+					*lastallocateduser=n;
+					break;
+				}
+			}
 		}
-		else prevnode=node;
 	}
-	spinlock_release(&pagespin);
+	nodetoremove->fifonext=NULL;
+	nodetoremove->next=NULL;
+	nodetoremove->numpages=0;
+	nodetoremove->pid=(pid_t) -1;
 	return 0;
 }
 
-struct ptpage* getentry(struct addrspace* as,vaddr_t vaddr){
-	int ind=(vaddr/PAGE_SIZE)%PTSIZE;
-	for(struct ptpage* node=pagetable[ind];node;node=node->next)	if(node->pageas==as && node->vaddr==vaddr)	return node;
-	return NULL;
-}
-
-int entryswapped(struct ptpage* ent,off_t swapoff){
-	spinlock_acquire(&pagespin);
-	KASSERT(ent!=NULL);
-	ent->paddr=(paddr_t) swapoff;
-	ent->swapped=true;
-	spinlock_release(&pagespin);
+int freekernel(struct ptpage* pagetable,unsigned int index){
+	pagetable[index].fifonext=NULL;
+	pagetable[index].next=NULL;
+	pagetable[index].numpages=0;
+	pagetable[index].pid=(pid_t) -1;
 	return 0;
 }
 
-int entrymem(struct ptpage* ent,paddr_t paddr){
-	spinlock_acquire(&pagespin);
-	ent->paddr=paddr;
-	ent->swapped=false;
-	spinlock_release(&pagespin);
-	return 0;
-}
-
-void ptdes(void){
-    kfree(pagetable);
+paddr_t getpageaddr(struct ptpage* pagetable,struct ptpage** hashedpt,unsigned int hashedptsize,pid_t pid,vaddr_t vaddr){
+	struct ptpage* hashedentry=gethashedentry(hashedpt,hashedptsize,pid,vaddr);
+	if(hashedentry==NULL) return (paddr_t) 0;
+	for(struct ptpage* node=hashedentry;node;node=node->next)	if(node->pid==pid && node->vaddr==vaddr)	return (paddr_t) (node-pagetable)*PAGE_SIZE;
+	return (paddr_t) 0;
 }

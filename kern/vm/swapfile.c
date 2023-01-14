@@ -7,7 +7,8 @@
 #include <vm.h>
 #include <vmstats.h>
 struct vnode* swapfile;
-unsigned char swappagesmap[SWAPPAGES];
+struct swappage swappagesmap[SWAPPAGES];
+
 struct spinlock swapspin=SPINLOCK_INITIALIZER;
 
 void getswapspin(void){
@@ -29,17 +30,21 @@ void swapinit(void){
     if(res) panic("Could not open swapfile");
     KASSERT(swapfile!=NULL);
     getswapspin();
-    for(int i=0;i<SWAPPAGES;i++) swappagesmap[i]=0;
+    for(int i=0;i<SWAPPAGES;i++){
+        swappagesmap[i].pid=(pid_t) -1;
+        swappagesmap[i].addr=(vaddr_t) 0;
+    }
     releaseswapspin();
 }
 
-off_t swapinpage(paddr_t readfrom){
+int swapinpage(pid_t pid,vaddr_t addr,paddr_t readfrom){
     int ind=-1;
     getswapspin();
     for(int i=0;i<SWAPPAGES;i++){
-        if(swappagesmap[i]==0){
+        if(swappagesmap[i].pid==-1){
             ind=i;
-            swappagesmap[i]=1;
+            swappagesmap[i].pid=pid;
+            swappagesmap[i].addr=addr;
             break;
         }
     }
@@ -52,19 +57,31 @@ off_t swapinpage(paddr_t readfrom){
     int res=VOP_WRITE(swapfile,&io);
     if(res) panic("Write in swapfile didnt complete");
     vmstatincr(SWAPWRITE);
-    return offset;
+    return 0;
 }
 
-void swapoutpage(off_t offset,paddr_t readin){
-    int ind=offset/PAGE_SIZE;
+int swapoutpage(pid_t pid,vaddr_t addr,paddr_t readin){
+    int ind=-1;
     struct iovec iov;
     struct uio io;
+    getswapspin();
+    for(int i=0;i<SWAPPAGES;i++){
+        if(swappagesmap[i].pid==pid && swappagesmap[i].addr==addr){
+            ind=i;
+            break;
+        }
+    }
+    releaseswapspin();
+    if(ind==-1) return EADDRNOTAVAIL;
+    off_t offset=ind*PAGE_SIZE;
     uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(readin),PAGE_SIZE,offset,UIO_READ);
     int res=VOP_READ(swapfile,&io);
     if(res) panic("Error while swapping a page out");
     getswapspin();
-    swappagesmap[ind]=0;
+    swappagesmap[ind].pid=(pid_t) -1;
+    swappagesmap[ind].addr=(vaddr_t) 0;
     releaseswapspin();
+    return 0;
 }
 
 void swapdest(void){

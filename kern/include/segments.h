@@ -5,6 +5,7 @@
 struct segment {
         size_t numpages;
         struct vnode* elfdata;
+        unsigned char* loadedelf;
         off_t elfoffset;
         vaddr_t startaddr;
         bool stackseg;

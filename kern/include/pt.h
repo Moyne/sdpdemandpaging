@@ -1,18 +1,20 @@
 #include <types.h>
-#include <addrspace.h>
-#define INSWAPFILE 0x80000001
 struct ptpage {
-    struct addrspace* pageas;
+    pid_t pid;
     vaddr_t vaddr;
-    paddr_t paddr;
-    bool swapped;
+    unsigned int numpages;
+    struct ptpage* fifonext;
     struct ptpage* next;
 };
-void pagetbinit(void);
-int addentry(struct addrspace* as,vaddr_t vaddr,paddr_t paddr);
-struct ptpage* getentry(struct addrspace* as,vaddr_t vaddr);
-int entryswapped(struct ptpage* ent,off_t swapoff);
-int entrymem(struct ptpage* ent,paddr_t paddr);
-struct ptpage* pagetbcreateentry(struct addrspace* as,vaddr_t vaddr,paddr_t paddr);
-int rementry(struct addrspace* as,vaddr_t vaddr);
-void ptdes(void);
+struct fifo{
+    struct ptpage* node;
+    struct fifo* next;
+};
+struct ptpage* gethashedentry(struct ptpage** hashedpt,unsigned int hashedptsize,pid_t pid,vaddr_t vaddr);
+void clearhashedptentry(struct ptpage** hashedpt,unsigned int hashedptsize,pid_t pid,vaddr_t vaddr);
+void sethashedptentry(struct ptpage** hashedpt,unsigned int hashedptsize,pid_t pid,vaddr_t vaddr,struct ptpage* node);
+int getfreeframes(struct ptpage* pagetable,unsigned int ptsize,unsigned int numpages);
+int setptentry(struct ptpage* pagetable,struct ptpage** hashedpt,unsigned int hashedptsize,unsigned int index,unsigned int numpages,struct ptpage** firstvictim,struct ptpage** lastallocateduser,pid_t pid,vaddr_t vaddr);
+int freeuser(struct ptpage** hashedpt,unsigned int hashedptsize,struct ptpage** firstvictim,struct ptpage** lastallocateduser,pid_t pid,vaddr_t vaddr);
+int freekernel(struct ptpage* pagetable,unsigned int index);
+paddr_t getpageaddr(struct ptpage* pagetable,struct ptpage** hashedpt,unsigned int hashedptsize,pid_t pid,vaddr_t vaddr);

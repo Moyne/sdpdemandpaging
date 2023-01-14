@@ -1,26 +1,15 @@
 #include <addrspace.h>
 #include <types.h>
-#define KERNEL 1
-#define USER 2
-#define FREE 0
-#define NOTINIT 99999
-struct page {
-    char type;
-    bool locked;
-    unsigned int numpages;
-    unsigned int fifonext;
-    struct addrspace* as;
-    vaddr_t vaddr;
-};
-
-void mapinit(void);
-int isActive(void);
+int isptactive(void);
+int ptinit(void);
 void map_can_sleep(void);
-paddr_t getfreeppages(unsigned long int npages,char type,struct addrspace* as,vaddr_t vaddr);
+paddr_t getfreeppages(unsigned long int npages);
 paddr_t getppages(unsigned long npages);
 vaddr_t alloc_kpages(unsigned npages);
 void free_kpages(vaddr_t addr);
-paddr_t alloc_user_page(vaddr_t vaddr);
+paddr_t allocuserpage(pid_t pid,vaddr_t addr);
+int freeuserpage(pid_t pid,vaddr_t addr);
+paddr_t pageaddr(pid_t pid,vaddr_t addr);
 /*
  * Dumb MIPS-only "VM system" that is intended to only be just barely
  * enough to struggle off the ground. You should replace all of this
