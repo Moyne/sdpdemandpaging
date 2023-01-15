@@ -47,6 +47,14 @@ int ptinit(void){
 	return 0;
 }
 
+void ptdest(void){
+	spinlock_acquire(&ptspin);
+	isAct=0;
+	spinlock_release(&ptspin);
+	kfree(hashedpt);
+	kfree(pt);
+}
+
 //alloc npages for kernel purposes
 paddr_t getfreeppages(unsigned long int npages){
 	if(!isptactive()) return 0;
@@ -70,32 +78,6 @@ paddr_t getfreeppages(unsigned long int npages){
 }
 
 
-/*void mapinit(void)
-{
-	totalPages=(unsigned int)ram_getsize()/PAGE_SIZE;
-    map=kmalloc(totalPages*sizeof(struct page));
-	if(map==NULL) return;
-	unsigned int firstFree=ram_getfirstfree()/PAGE_SIZE; // if you want to try swapfile: totalPages-6;
-	for(unsigned int i=0;i<firstFree;i++){
-        map[i].type=KERNEL;
-        map[i].numpages=1;
-        map[i].fifonext=NOTINIT;
-        map[i].as=NULL;
-		map[i].locked=true;
-		map[i].vaddr=PADDR_TO_KVADDR(i*PAGE_SIZE);
-    }
-	for(unsigned int i=firstFree;i<totalPages;i++){
-		map[i].type=FREE;
-        map[i].numpages=0;
-        map[i].fifonext=NOTINIT;
-        map[i].as=NULL;
-		map[i].locked=false;
-	}
-	spinlock_acquire(&freemem_lock);
-	isAct=1;
-	spinlock_release(&freemem_lock);
-}*/
-
 /*
  * Check if we're in a context that can sleep. While most of the
  * operations in vm don't in fact sleep, in a real VM system many
@@ -103,7 +85,7 @@ paddr_t getfreeppages(unsigned long int npages){
  * avoid the situation where syscall-layer code that works ok with
  * dumbvm starts blowing up during the VM assignment.
  */
-void map_can_sleep(void)
+void pt_can_sleep(void)
 {
 	if (CURCPU_EXISTS()) {
 		/* must not hold spinlocks */
@@ -114,39 +96,6 @@ void map_can_sleep(void)
 	}
 }
 
-/*paddr_t getfreeppages(unsigned long int npages,char type,struct addrspace* as,vaddr_t vaddr){
-	if(!isptactive()) return 0;
-	spinlock_acquire(&freemem_lock);
-	unsigned int start=NOTINIT;
-	for(unsigned int i=0;i<totalPages;i++){
-		if(map[i].type==FREE){
-			if(start==NOTINIT) start=i;
-            if(i-start>=npages-1){
-                spinlock_release(&freemem_lock);
-                for(unsigned int j=i;j>=start;j--){
-                    map[j].type=type;
-                    map[j].numpages=npages;
-                    map[j].fifonext=NOTINIT;
-                    map[j].as=as;
-					map[j].locked=false;
-					map[j].vaddr=vaddr!=0?vaddr:PADDR_TO_KVADDR(start*PAGE_SIZE);
-                }
-                if(type==USER){
-                    if(lastallocateduser!=NOTINIT)  map[lastallocateduser].fifonext=start;
-                    if(swapvictim==NOTINIT) swapvictim=start;
-                    lastallocateduser=start;
-                }
-                return (paddr_t) PAGE_SIZE*start;
-            }
-        }
-        else{
-			i+=map[i].numpages;
-			start=NOTINIT;
-		}
-	}
-	spinlock_release(&freemem_lock);
-	return 0;
-}*/
 paddr_t getppages(unsigned long npages)
 {
 	paddr_t addr;
@@ -165,7 +114,7 @@ vaddr_t alloc_kpages(unsigned npages)
 {
 	paddr_t pa;
 
-	map_can_sleep();
+	pt_can_sleep();
 	pa = getppages(npages);
 	if (pa==0) {
 		return 0;
@@ -183,34 +132,6 @@ void free_kpages(vaddr_t addr)
 	spinlock_release(&ptspin);
 }
 
-/*paddr_t alloc_user_page(vaddr_t vaddr){
-    struct addrspace* as=proc_getas();
-    paddr_t res=getfreeppages(1,USER,as,vaddr);
-    if(res!=0){
-        //found physical frame available
-		as_zero_region(res,PAGE_SIZE);
-        return res;
-    }
-    else{
-        //swapping needed
-        if(swapvictim==NOTINIT) panic("Don't have any user process to swap out!");
-        unsigned int newvict=map[swapvictim].fifonext;
-		struct ptpage* pagetoswap=getentry(map[swapvictim].as,map[swapvictim].vaddr);
-		off_t swapinoff= swapinpage((paddr_t) swapvictim*PAGE_SIZE);
-		entryswapped(pagetoswap,swapinoff);
-		as_zero_region((paddr_t) swapvictim*PAGE_SIZE,PAGE_SIZE);
-		map[swapvictim].as=as;
-		map[swapvictim].numpages=1;
-		map[swapvictim].type=USER;
-		map[swapvictim].vaddr=vaddr;
-		map[swapvictim].fifonext=NOTINIT;
-		map[swapvictim].locked=false;
-		map[lastallocateduser].fifonext=swapvictim;
-		lastallocateduser=swapvictim;
-		swapvictim=newvict;
-		return (paddr_t)   lastallocateduser*PAGE_SIZE;      
-    }
-}*/
 
 paddr_t allocuserpage(pid_t pid,vaddr_t addr){
 	if(!isptactive()) return 0;
@@ -250,4 +171,11 @@ paddr_t pageaddr(pid_t pid,vaddr_t addr){
 	paddr_t pagephysicaladdr=getpageaddr(pt,hashedpt,hashedptsize,pid,addr);
 	spinlock_release(&ptspin);
 	return pagephysicaladdr;
+}
+
+void removeptentries(pid_t pid){
+	if(!isptactive()) return;
+	spinlock_acquire(&ptspin);
+	for(unsigned int i=0;i<ptsize;i++)	if(pt[i].pid==pid)	freeuser(hashedpt,hashedptsize,&firstvictim,&lastallocateduser,pid,pt[i].vaddr);
+	spinlock_release(&ptspin);
 }

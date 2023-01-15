@@ -18,6 +18,12 @@ void vm_bootstrap(void){
 	vmstatsetup();
 }
 
+void vm_shutdown(void){
+	swapdest();
+	ptdest();
+	printvmstats(0,NULL);
+}
+
 void vm_tlbshootdown(const struct tlbshootdown *ts)
 {
 	(void)ts;

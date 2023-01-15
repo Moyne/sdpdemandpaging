@@ -11,6 +11,8 @@ struct swappage swappagesmap[SWAPPAGES];
 
 struct spinlock swapspin=SPINLOCK_INITIALIZER;
 
+int maxindswappedpage=0;
+
 void getswapspin(void){
     if(spinlock_do_i_hold(&swapspin)) return;
     else spinlock_acquire(&swapspin);
@@ -45,6 +47,7 @@ int swapinpage(pid_t pid,vaddr_t addr,paddr_t readfrom){
             ind=i;
             swappagesmap[i].pid=pid;
             swappagesmap[i].addr=addr;
+            if(i>=maxindswappedpage)    maxindswappedpage=i;
             break;
         }
     }
@@ -84,15 +87,18 @@ int swapoutpage(pid_t pid,vaddr_t addr,paddr_t readin){
     return 0;
 }
 
+void removeswapentries(pid_t pid){
+    getswapspin();
+    for(int i=0;i<=maxindswappedpage;i++){
+        if(swappagesmap[i].pid==pid){
+            swappagesmap[i].pid=(pid_t) -1;
+            swappagesmap[i].addr=(vaddr_t) 0;
+        }
+    }
+    releaseswapspin();
+}
+
 void swapdest(void){
     vfs_close(swapfile);
     spinlock_cleanup(&swapspin);
-}
-
-void copytofromswap(paddr_t to,off_t from){
-    struct iovec iov;
-    struct uio io;
-    uio_kinit(&iov,&io,(void*) PADDR_TO_KVADDR(to),PAGE_SIZE,from,UIO_READ);
-    int res=VOP_READ(swapfile,&io);
-    if(res) panic("Error while copying a page from swapfile");
 }

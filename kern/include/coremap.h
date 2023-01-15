@@ -2,7 +2,8 @@
 #include <types.h>
 int isptactive(void);
 int ptinit(void);
-void map_can_sleep(void);
+void ptdest(void);
+void pt_can_sleep(void);
 paddr_t getfreeppages(unsigned long int npages);
 paddr_t getppages(unsigned long npages);
 vaddr_t alloc_kpages(unsigned npages);
@@ -10,6 +11,7 @@ void free_kpages(vaddr_t addr);
 paddr_t allocuserpage(pid_t pid,vaddr_t addr);
 int freeuserpage(pid_t pid,vaddr_t addr);
 paddr_t pageaddr(pid_t pid,vaddr_t addr);
+void removeptentries(pid_t pid);
 /*
  * Dumb MIPS-only "VM system" that is intended to only be just barely
  * enough to struggle off the ground. You should replace all of this

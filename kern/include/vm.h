@@ -47,7 +47,7 @@
 #define PTSIZE  128
 /* Initialization function */
 void vm_bootstrap(void);
-
+void vm_shutdown(void);
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress);
 

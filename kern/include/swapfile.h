@@ -13,4 +13,4 @@ void swapinit(void);
 int swapinpage(pid_t pid,vaddr_t addr,paddr_t readfrom);
 int swapoutpage(pid_t pid,vaddr_t addr,paddr_t readin);
 void swapdest(void);
-void copytofromswap(paddr_t to,off_t from);
+void removeswapentries(pid_t pid);

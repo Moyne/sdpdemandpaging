@@ -31,6 +31,8 @@
 #include <kern/errno.h>
 #include <lib.h>
 #include <addrspace.h>
+#include <current.h>
+#include <swapfile.h>
 #include <coremap.h>
 #include <uio.h>
 #include <vnode.h>
@@ -89,12 +91,14 @@ int as_copy(struct addrspace *old, struct addrspace **ret)
 }
 
 void
-as_destroy(struct addrspace *as)
+as_destroy(struct addrspace *as,pid_t pid)
 {
 	/*
 	 * Clean up as needed.
 	 */
 	segdes(as->seg1);segdes(as->seg2);segdes(as->segstack);
+	removeptentries(pid);
+	removeswapentries(pid);
 	kfree(as);
 }
 
@@ -149,7 +153,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 {
 	size_t npages;
 
-	map_can_sleep();
+	pt_can_sleep();
 
 	/* Align the region. First, the base... */
 	size_t sz=memsize;
