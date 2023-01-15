@@ -56,6 +56,7 @@ struct addrspace {
         paddr_t as_stackpbase;
 #endif
 #if OPT_VM
+        //a segment structure for each segment, code, data and stack
         struct segment* seg1;
         struct segment* seg2;
         struct segment* segstack;
@@ -102,20 +103,27 @@ struct addrspace {
  * Note that when using dumbvm, addrspace.c is not used and these
  * functions are found in dumbvm.c.
  */
+//fill with zeros a region
 void as_zero_region(paddr_t paddr,size_t len);
+//create a new address space structure
 struct addrspace *as_create(void);
+//copy an addresspace into a new one
 int               as_copy(struct addrspace *src, struct addrspace **ret);
+//to activate we simply invalidate the TLB
 void              as_activate(void);
 void              as_deactivate(void);
+//free every resource attached to this addresspace, so swapfile entries, page table entries etc.
 void              as_destroy(struct addrspace * as,pid_t pid);
+//set a specific segment
 int as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		 off_t offset,struct vnode* vnode,
 		 int readable, int writable, int executable);
 int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
+//define stack segment
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
+//read a page from the elf file into paddr
 void readfromelfto(struct addrspace* as, vaddr_t vaddr,paddr_t paddr);
-struct ptpage* getpageat(struct addrspace* as, vaddr_t vaddr);
 /*
  * Functions in loadelf.c
  *    load_elf - load an ELF user program executable into the current

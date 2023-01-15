@@ -1,16 +1,26 @@
 #include <addrspace.h>
 #include <types.h>
+//inner function to get page table status
 int isptactive(void);
+//initialize the page table and also hashed page table
 int ptinit(void);
+//destroy resources
 void ptdest(void);
 void pt_can_sleep(void);
+//kernel allocation of npages
 paddr_t getfreeppages(unsigned long int npages);
 paddr_t getppages(unsigned long npages);
+//wrapper for kernel page allocation
 vaddr_t alloc_kpages(unsigned npages);
+//free kernel pages
 void free_kpages(vaddr_t addr);
+//allocate user page with pid and addr
 paddr_t allocuserpage(pid_t pid,vaddr_t addr);
+//free a user page
 int freeuserpage(pid_t pid,vaddr_t addr);
+//get physical address of page
 paddr_t pageaddr(pid_t pid,vaddr_t addr);
+//remove every entry from page table and also hashed page table that contain pid
 void removeptentries(pid_t pid);
 /*
  * Dumb MIPS-only "VM system" that is intended to only be just barely
