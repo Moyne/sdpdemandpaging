@@ -26,7 +26,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
+#include "opt-paging.h"
+#if OPT_PAGING
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -254,3 +255,4 @@ void readfromelfto(struct addrspace* as, vaddr_t vaddr,paddr_t paddr){
 	}
 	if(res) panic("Could not read from elf");
 }
+#endif

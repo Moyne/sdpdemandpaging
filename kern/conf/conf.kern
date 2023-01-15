@@ -468,10 +468,10 @@ defoption syscalls
 
 defoption fork
 
-defoption vm
-optfile vm vm/vm.c
-optfile vm vm/coremap.c
-optfile vm vm/swapfile.c
-optfile vm vm/pt.c
-optfile vm vm/segments.c
-optfile vm vm/vmstats.c
+defoption paging
+optfile paging vm/vm.c
+optfile paging vm/coremap.c
+optfile paging vm/swapfile.c
+optfile paging vm/pt.c
+optfile paging vm/segments.c
+optfile paging vm/vmstats.c

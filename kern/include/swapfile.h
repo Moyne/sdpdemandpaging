@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <types.h>
 #define SWAPFILESIZE 13*1024*1024
 #define SWAPPAGES SWAPFILESIZE/PAGE_SIZE
@@ -20,3 +23,5 @@ int swapoutpage(pid_t pid,vaddr_t addr,paddr_t readin);
 void swapdest(void);
 //remove from the swapfile every entry with pid equal to pid
 void removeswapentries(pid_t pid);
+
+#endif

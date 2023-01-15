@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <coremap.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -179,3 +182,5 @@ void removeptentries(pid_t pid){
 	for(unsigned int i=0;i<ptsize;i++)	if(pt[i].pid==pid)	freeuser(hashedpt,hashedptsize,&firstvictim,&lastallocateduser,pid,pt[i].vaddr);
 	spinlock_release(&ptspin);
 }
+
+#endif

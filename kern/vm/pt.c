@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <pt.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -120,3 +123,5 @@ paddr_t getpageaddr(struct ptpage* pagetable,struct ptpage** hashedpt,unsigned i
 	for(struct ptpage* node=hashedentry;node;node=node->next)	if(node->pid==pid && node->vaddr==vaddr)	return (paddr_t) (node-pagetable)*PAGE_SIZE;
 	return (paddr_t) 0;
 }
+
+#endif

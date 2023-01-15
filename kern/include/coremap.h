@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <addrspace.h>
 #include <types.h>
 //inner function to get page table status
@@ -45,3 +48,5 @@ void removeptentries(pid_t pid);
 /*
  * Wrap ram_stealmem in a spinlock.
  */
+
+#endif

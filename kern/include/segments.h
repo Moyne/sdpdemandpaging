@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <types.h>
 #define RDFLAG 4
 #define WRFLAG 2
@@ -19,3 +22,5 @@ void segdef(struct segment* seg,vaddr_t vaddr,size_t npages,
 struct segment* segcopy(struct segment* seg);
 //destroy the segment freeing resources
 void segdes(struct segment* seg);
+
+#endif

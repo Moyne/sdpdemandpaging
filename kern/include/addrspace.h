@@ -36,7 +36,7 @@
 #include <vm.h>
 #include <segments.h>
 #include "opt-dumbvm.h"
-#include "opt-vm.h"
+#include "opt-paging.h"
 /*
  * Address space - data structure associated with the virtual memory
  * space of a process.
@@ -55,7 +55,7 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #endif
-#if OPT_VM
+#if OPT_PAGING
         //a segment structure for each segment, code, data and stack
         struct segment* seg1;
         struct segment* seg2;

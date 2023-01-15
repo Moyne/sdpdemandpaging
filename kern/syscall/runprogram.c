@@ -44,7 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
-#include "opt-vm.h"
+#include "opt-paging.h"
 /*
  * Load program "progname" and start running it in usermode.
  * Does not return except on error.
@@ -86,7 +86,7 @@ runprogram(char *progname)
 		vfs_close(v);
 		return result;
 	}
-#if !OPT_VM
+#if !OPT_PAGING
 	/* Done with the file now. */
 
 	vfs_close(v);

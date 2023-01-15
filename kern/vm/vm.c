@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <vm.h>
 #include <types.h>
 #include <kern/errno.h>
@@ -19,9 +22,13 @@ void vm_bootstrap(void){
 }
 
 void vm_shutdown(void){
+#if OPT_PAGING
 	swapdest();
+#endif
 	ptdest();
+#if OPT_PAGING
 	printvmstats(0,NULL);
+#endif
 }
 
 void vm_tlbshootdown(const struct tlbshootdown *ts)
@@ -100,8 +107,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	/* make sure it's page-aligned */
-	//KASSERT((paddr & PAGE_FRAME) == paddr);
 
 	/* Disable interrupts on this CPU while frobbing the TLB. */
 	spl = splhigh();
@@ -136,3 +141,4 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
 	splx(spl);
 	return EFAULT;
 }
+#endif

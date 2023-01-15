@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <segments.h>
 #include <vm.h>
 #include <kern/errno.h>
@@ -5,6 +8,7 @@
 #include <vnode.h>
 #include <proc.h>
 #include <uio.h>
+#include <vfs.h>
 struct segment* segcreate(void){
 	struct segment* seg=kmalloc(sizeof(struct segment));
 	if(seg==NULL) return NULL;
@@ -45,6 +49,7 @@ struct segment* segcopy(struct segment* seg){
 }
 void segdes(struct segment* seg){
     seg->numpages=0;
+	if(seg->elfdata!=NULL)	vfs_close(seg->elfdata);
 	seg->elfdata=NULL;
 	seg->elfoffset=0;
 	seg->startaddr=0;
@@ -53,3 +58,4 @@ void segdes(struct segment* seg){
 	kfree(seg->loadedelf);
     kfree(seg);
 }
+#endif

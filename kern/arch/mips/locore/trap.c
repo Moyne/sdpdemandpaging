@@ -40,7 +40,7 @@
 #include <mainbus.h>
 #include <syscall.h>
 #include <vm_tlb.h>
-#include "opt-vm.h"
+#include "opt-paging.h"
 
 
 /* in exception-*.S */

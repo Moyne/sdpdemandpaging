@@ -1,3 +1,5 @@
+#include "opt-paging.h"
+#if OPT_PAGING
 #include <swapfile.h>
 #include <uio.h>
 #include <vnode.h>
@@ -102,3 +104,4 @@ void swapdest(void){
     vfs_close(swapfile);
     spinlock_cleanup(&swapspin);
 }
+#endif

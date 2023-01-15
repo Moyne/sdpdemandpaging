@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <vmstats.h>
 #include <spinlock.h>
 #include <lib.h>
@@ -37,3 +40,5 @@ int printvmstats(int nargs, char **args){
     spinlock_release(&statspin);
     return 0;
 }
+
+#endif

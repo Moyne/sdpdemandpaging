@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <types.h>
 #define VMSTATSLEN 10
 //types of stats
@@ -18,3 +21,5 @@ void vmstatsetup(void);
 void vmstatincr(unsigned int type);
 //print statistics
 int printvmstats(int nargs, char **args);
+
+#endif

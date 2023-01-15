@@ -1,3 +1,6 @@
+#include "opt-paging.h"
+#if OPT_PAGING
+
 #include <types.h>
 /*
 *This file can be seen as a library, these functions are used by coremap that wraps these function
@@ -34,3 +37,5 @@ int freeuser(struct ptpage** hashedpt,unsigned int hashedptsize,struct ptpage** 
 int freekernel(struct ptpage* pagetable,unsigned int index);
 //get physical address for page with pid and vaddr
 paddr_t getpageaddr(struct ptpage* pagetable,struct ptpage** hashedpt,unsigned int hashedptsize,pid_t pid,vaddr_t vaddr);
+
+#endif

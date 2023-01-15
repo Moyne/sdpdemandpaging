@@ -59,7 +59,7 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <elf.h>
-#include "opt-vm.h"
+#include "opt-paging.h"
 /*
  * Load a segment at virtual address VADDR. The segment in memory
  * extends from VADDR up to (but not including) VADDR+MEMSIZE. The
@@ -243,7 +243,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 				ph.p_type);
 			return ENOEXEC;
 		}
-#if OPT_VM
+#if OPT_PAGING
 		result= as_define_region(as,ph.p_vaddr, ph.p_memsz,ph.p_offset,v,
 						ph.p_flags & PF_R,
 					  	ph.p_flags & PF_W,
@@ -270,7 +270,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 	 * Now actually load each segment.
 	 */
 
-#if !OPT_VM
+#if !OPT_PAGING
 	
 	for (i=0; i<eh.e_phnum; i++) {
 		off_t offset = eh.e_phoff + i*eh.e_phentsize;
