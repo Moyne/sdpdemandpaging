@@ -41,6 +41,7 @@
 #include <proc.h>
 #include <spl.h>
 #include <vm_tlb.h>
+#include <vfs.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -97,6 +98,7 @@ as_destroy(struct addrspace *as,pid_t pid)
 	/*
 	 * Clean up as needed.
 	 */
+	if(as->seg1->elfdata!=NULL)	vfs_close(as->seg1->elfdata);
 	segdes(as->seg1);segdes(as->seg2);segdes(as->segstack);
 	removeptentries(pid);
 	removeswapentries(pid);
