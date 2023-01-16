@@ -2,7 +2,7 @@
 #if OPT_PAGING
 
 #include <types.h>
-#define SWAPFILESIZE 13*1024*1024
+#define SWAPFILESIZE 9*1024*1024
 #define SWAPPAGES SWAPFILESIZE/PAGE_SIZE
 struct swappage{
     pid_t pid;      //pid and vaddr are used as IDs to identify a single page
