@@ -133,7 +133,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress)
 		paddr=respaddr;
 	}
 	else	vmstatincr(TLBRELOAD);
-	if(vmtlb_write(faultaddress,paddr,seg->permissions & WRFLAG)==-1)	kprintf("vm: Ran out of TLB entries - cannot handle page fault\n");
+	if(vmtlb_write(curproc->p_pid,faultaddress,paddr,seg->permissions & WRFLAG)==-1)	panic("vm: error while writing in tlb\n");
 	else {
 		splx(spl);
 		return 0;

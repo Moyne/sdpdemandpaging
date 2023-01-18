@@ -6,7 +6,7 @@
 //types of stats
 typedef enum{
     TLBFAULT,
-    TLFAULTWITHFREE,
+    TLBFAULTWITHFREE,
     TLBFAULTWITHREPLACE,
     TLBINVALIDATION,
     TLBRELOAD,

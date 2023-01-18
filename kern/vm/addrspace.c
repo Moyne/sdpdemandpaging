@@ -124,7 +124,7 @@ as_activate(void)
 	 */
 	//tlb invalidation
 	int spl = splhigh();
-	vmtlb_invalidate();
+	vmtlb_invalidate(curproc->p_pid);
 	splx(spl);
 	
 }

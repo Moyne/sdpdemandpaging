@@ -72,6 +72,9 @@ paddr_t getfreeppages(unsigned long int npages){
 			spinlock_release(&ptspin);
 			//disk operation require not to have any other spinlock owned
 			swapinpage(firstvictim->pid,firstvictim->vaddr,getpageaddr(pt,hashedpt,hashedptsize,firstvictim->pid,firstvictim->vaddr));
+			int spl=splhigh();
+			vmtlb_invalidatepage(firstvictim->pid,firstvictim->vaddr);
+			splx(spl);
 			freeuser(hashedpt,hashedptsize,&firstvictim,&lastallocateduser,firstvictim->pid,firstvictim->vaddr);
 		}
 	}
@@ -151,6 +154,9 @@ paddr_t allocuserpage(pid_t pid,vaddr_t addr){
 			ind=firstvictim-pt;
 			swapinpage(firstvictim->pid,firstvictim->vaddr,getpageaddr(pt,hashedpt,hashedptsize,firstvictim->pid,firstvictim->vaddr));
 			spinlock_acquire(&ptspin);
+			int spl=splhigh();
+			vmtlb_invalidatepage(firstvictim->pid,firstvictim->vaddr);
+			splx(spl);
 			freeuser(hashedpt,hashedptsize,&firstvictim,&lastallocateduser,firstvictim->pid,firstvictim->vaddr);
 		}
 	}
