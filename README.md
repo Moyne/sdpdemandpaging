@@ -2,7 +2,7 @@
 
 For this project I tried to implement a fully new virtual memory system, so I started out by working on the TLB module, working on the `vm_tlb.c` file, as requested I implemented a very simple round robin TLB entry replacement algorithm in the function
 ```c
-vmtlb_write(vaddr_t addr,paddr_t paddr,bool writePriv)
+vmtlb_write(pid_t pid,vaddr_t addr,paddr_t paddr,bool writePriv)
 ```
 in this function it's also implemented the read only text area specification, in fact `writePriv` activates or not the TLB dirty bit.
 
@@ -98,3 +98,22 @@ to remove every page from the swapfile that is possessed by a certain pid, this 
 ### ***Conclusion***
 
 In conclusion this project was really helpful to understand more in detail how the virtual memory works and its challenges like memory constraints, speed constraints and others.
+
+### ***Tests***
+
+To finish off I built the tlbreplace test because I noticed that because of the huge amount of syscalls there were too many context switches, so the tlb was invalidated too many times without ever letting it arrive to fill, I changed how this works by checking the pid of the user deactivating the tlb with the last user accessing it, if they match we don't deactivate the tlb, and also, because of the fact that each time a page is saved onto the swapfile its eventual tlb entry must be invalidated, so tlb faults with free in this project are then everytime the tlb should have at least one free slot, even if the tlb entry is put onto the same of a just swapped entry which tlb entry was deleted, while tlb faults with replace happen every time we fill the whole tlb, or the tlb is filled and I put the entry on a swapped in page.
+
+To sum it up here are the results:
+
+|Test name\Data(now vs then)| TLB Faults | TLB Faults with free | TLB faults with replace | TLB invalidations |  Tlb reloads | Page faults (Zeroed) | Page faults (Disk) | Page faults from ELF | Page faults from swapfile | Swapfile writes |
+| ------ | ------ | ------- | ------ | ------ | ----- | ------ | ------- | ----- | ------- | ------ |
+| Palin  | 5 vs 13917 | 5 vs 13917 | 0 vs 0 | 6 vs 7792 | 0 vs 13912 | 1 vs 1 | 4 vs 4 | 4 vs 4 | 0 vs 0 | 0 vs 0 |
+| Huge   | 3597 vs 7538 | 3597 vs 7538 | 0 vs 0 | 6 vs 7307 | 0 vs 3941 | 1 vs 1 | 3596 vs 3596 | 514 vs 514 | 3082 vs 3082 | 3534 vs 3534 |
+| Matmult | 821 vs 4902 | 64 vs 4902 | 757 vs 0 | 6 vs 1647 | 0 vs 4081 | 1 vs 1 | 820 vs 820 | 382 vs 382 | 438 vs 438 | 757 vs 757 |
+| Ctest | 125246 vs 248943 | 64 vs 248943 | 125182 vs 0 | 6 vs 250465 | 0 vs 123697 | 1 vs 1 | 125245 vs 125245 | 259 vs 259 | 124986 vs 124986 | 125182 vs 125182 |
+| tlbreplace | 651 vs 1291 | 64 vs 1291 | 587 vs 0 | 6 vs 1244 | 0 vs 640 | 0 vs 0 | 651 vs 651 | 321 vs 321 | 330 vs 330 | 587 vs 587 |
+
+### ***Possible imporvements***
+
+A possible improvement would be using an LRU algorithm for page replacement in some way, in OS161 the memory accesses data are not so accessible.
+Another thing would be making the system resiliant to address spaces with segments not page aligned, in fact now because of how structured the sort program is it could not run.

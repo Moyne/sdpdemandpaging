@@ -43,7 +43,7 @@ struct segment* segcopy(struct segment* seg){
 	newseg->startaddr=seg->startaddr;
 	newseg->stackseg=seg->stackseg;
 	newseg->loadedelf=kmalloc(newseg->numpages*sizeof(unsigned char));
-	for(unsigned int i=0;i<newseg->numpages;i++) newseg->loadedelf[i]=seg->loadedelf[i];
+	for(unsigned int i=0;i<newseg->numpages;i++) newseg->loadedelf[i]=0;
 	return newseg;
 }
 void segdes(struct segment* seg){
